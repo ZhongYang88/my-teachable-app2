@@ -1,25 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Image Classifier</title>
-  
-  <!-- ✅ Load TensorFlow.js first -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <title>Teachable Machine Image Project</title>
 
-  <!-- ✅ Load Teachable Machine Image Library AFTER TensorFlow -->
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <!-- ✅ Correct TensorFlow and TM scripts from official export -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8"></script>
 
-  <!-- Optional: Prevent favicon error -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:,">
 </head>
 
 <body>
-  <h2>Upload an Image to Classify</h2>
-  
+  <h1>Teachable Machine Image Classification</h1>
+
   <input type="file" accept="image/*" onchange="previewImage(event)">
   <br><br>
-  
-  <img id="preview" width="200" />
+
+  <img id="imagePreview" width="200">
   <br><br>
 
   <label>Quantity:</label>
@@ -28,30 +26,26 @@
   <label>Remarks:</label>
   <input type="text" id="remarks"><br><br>
 
-  <button onclick="predict()">Classify & Submit</button>
-  <p id="result"></p>
+  <button type="button" onclick="predict()">Classify & Submit</button>
 
-  <script>
-    // ✅ Replace these with your own URLs
-    const modelURL = "https://teachablemachine.withgoogle.com/models/4PG14lwFe/";
-    const scriptURL = "https://script.google.com/macros/s/AKfycbxujZmNFrsTzzVK0xLE3A0Pm2OYakYL2XrQ6m05ui1hqjABFbMDZC12X1vSdhX0Jl_2DA/exec";
+  <p id="label-container"></p>
 
-    let model, imageElement, imageBase64 = "";
+  <script type="text/javascript">
+    // Replace these with your URLs
+    const modelURL = "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/";
+    const scriptURL = "https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec";
 
-    async function loadModel() {
-      try {
-        model = await tmImage.load(modelURL + "model.json", modelURL + "metadata.json");
-        console.log("Model loaded");
-      } catch (err) {
-        console.error("Failed to load model:", err);
-      }
+    let model, imageBase64 = "", imageElement;
+
+    async function init() {
+      model = await tmImage.load(modelURL + "model.json", modelURL + "metadata.json");
     }
 
-    loadModel();
+    init();
 
     function previewImage(event) {
       const file = event.target.files[0];
-      imageElement = document.getElementById('preview');
+      imageElement = document.getElementById("imagePreview");
       imageElement.src = URL.createObjectURL(file);
 
       const reader = new FileReader();
@@ -62,44 +56,35 @@
     }
 
     async function predict() {
-      if (!imageElement || !imageBase64 || !model) {
-        alert("Model or image not ready");
+      if (!model || !imageElement || !imageBase64) {
+        alert("Model or image not ready.");
         return;
       }
 
-      try {
-        const prediction = await model.predict(imageElement);
-        const best = prediction.sort((a, b) => b.probability - a.probability)[0];
+      const predictions = await model.predict(imageElement);
+      const best = predictions.sort((a, b) => b.probability - a.probability)[0];
 
-        document.getElementById("result").innerText = 
-          `Prediction: ${best.className} (${(best.probability * 100).toFixed(2)}%)`;
+      document.getElementById("label-container").innerText =
+        `Prediction: ${best.className} (${(best.probability * 100).toFixed(2)}%)`;
 
-        const quantity = document.getElementById("quantity").value;
-        const remarks = document.getElementById("remarks").value;
+      const quantity = document.getElementById("quantity").value;
+      const remarks = document.getElementById("remarks").value;
 
-        // Send data to Google Sheet
-        fetch(scriptURL, {
-          method: "POST",
-          body: JSON.stringify({
-            prediction: best.className,
-            confidence: best.probability,
-            quantity: quantity,
-            remarks: remarks,
-            imageBase64: imageBase64
-          }),
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }).then(() => {
-          alert("Submitted successfully!");
-        });
-
-      } catch (err) {
-        console.error("Prediction error:", err);
-        alert("Prediction failed.");
-      }
+      // Send to Google Sheet
+      fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({
+          prediction: best.className,
+          confidence: best.probability,
+          quantity: quantity,
+          remarks: remarks,
+          imageBase64: imageBase64
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }).then(() => alert("Data submitted!"));
     }
   </script>
-
 </body>
 </html>
