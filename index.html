@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Image Classifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+  <h2>Upload an Image to Classify</h2>
+  
+  <input type="file" accept="image/*" onchange="previewImage(event)">
+  <br><br>
+  
+  <img id="preview" width="200" />
+  <br><br>
+
+  <label>Quantity:</label>
+  <input type="number" id="quantity" min="1" value="1"><br><br>
+
+  <label>Remarks:</label>
+  <input type="text" id="remarks"><br><br>
+
+  <button onclick="predict()">Classify & Submit</button>
+  <p id="result"></p>
+
+  <script>
+    const modelURL = "https://teachablemachine.withgoogle.com/models/4PG14lwFe/";
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxujZmNFrsTzzVK0xLE3A0Pm2OYakYL2XrQ6m05ui1hqjABFbMDZC12X1vSdhX0Jl_2DA/exec";
+
+    let model, imageElement, imageBase64 = "";
+
+    async function loadModel() {
+      model = await tmImage.load(modelURL + "model.json", modelURL + "metadata.json");
+    }
+
+    loadModel();
+
+    function previewImage(event) {
+      const file = event.target.files[0];
+      imageElement = document.getElementById('preview');
+      imageElement.src = URL.createObjectURL(file);
+
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        imageBase64 = reader.result;
+      };
+      reader.readAsDataURL(file);  // This will convert the image to Base64
+    }
+
+    async function predict() {
+      if (!imageElement || !imageBase64) {
+        alert("Please upload an image.");
+        return;
+      }
+
+      const prediction = await model.predict(imageElement);
+      const best = prediction.sort((a, b) => b.probability - a.probability)[0];
+
+      document.getElementById("result").innerText = 
+        `Prediction: ${best.className} (${(best.probability * 100).toFixed(2)}%)`;
+
+      const quantity = document.getElementById("quantity").value;
+      const remarks = document.getElementById("remarks").value;
+
+      fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({
+          prediction: best.className,
+          confidence: best.probability,
+          quantity: quantity,
+          remarks: remarks,
+          imageBase64: imageBase64
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }).then(() => {
+        alert("Submitted successfully!");
+      });
+    }
+  </script>
+
+</body>
+</html>
