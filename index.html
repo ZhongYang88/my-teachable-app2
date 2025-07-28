@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Teachable Machine Image Project</title>
+  <title>AI Image Classifier</title>
 
-  <!-- ✅ Correct TensorFlow and TM scripts from official export -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8"></script>
+  <!-- ✅ Load TensorFlow.js first -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9.0/dist/tf.min.js"></script>
+
+  <!-- ✅ Load Teachable Machine Image library -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:,">
 </head>
 
 <body>
-  <h1>Teachable Machine Image Classification</h1>
+  <h2>Upload Image, Input Quantity & Remarks</h2>
 
-  <input type="file" accept="image/*" onchange="previewImage(event)">
-  <br><br>
-
-  <img id="imagePreview" width="200">
-  <br><br>
+  <input type="file" accept="image/*" id="imageUpload"><br><br>
+  <img id="imagePreview" width="200"><br><br>
 
   <label>Quantity:</label>
   <input type="number" id="quantity" min="1" value="1"><br><br>
@@ -26,64 +25,71 @@
   <label>Remarks:</label>
   <input type="text" id="remarks"><br><br>
 
-  <button type="button" onclick="predict()">Classify & Submit</button>
+  <button onclick="predict()">Classify & Submit</button>
+  <p id="result"></p>
 
-  <p id="label-container"></p>
+  <script>
+    const modelURL = "https://teachablemachine.withgoogle.com/models/4PG14lwFe/";
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxujZmNFrsTzzVK0xLE3A0Pm2OYakYL2XrQ6m05ui1hqjABFbMDZC12X1vSdhX0Jl_2DA/exec";
 
-  <script type="text/javascript">
-    // Replace these with your URLs
-    const modelURL = "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/";
-    const scriptURL = "https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec";
-
-    let model, imageBase64 = "", imageElement;
+    let model, imageBase64 = "";
 
     async function init() {
       model = await tmImage.load(modelURL + "model.json", modelURL + "metadata.json");
+      console.log("✅ Model loaded");
     }
 
     init();
 
-    function previewImage(event) {
+    // When image is uploaded, preview it and convert to base64
+    document.getElementById('imageUpload').addEventListener('change', function (event) {
       const file = event.target.files[0];
-      imageElement = document.getElementById("imagePreview");
-      imageElement.src = URL.createObjectURL(file);
+      if (!file) return;
 
       const reader = new FileReader();
       reader.onloadend = function () {
         imageBase64 = reader.result;
+        document.getElementById('imagePreview').src = reader.result;
       };
       reader.readAsDataURL(file);
-    }
+    });
 
     async function predict() {
-      if (!model || !imageElement || !imageBase64) {
-        alert("Model or image not ready.");
+      if (!model || !imageBase64) {
+        alert("Please upload an image first.");
         return;
       }
 
-      const predictions = await model.predict(imageElement);
-      const best = predictions.sort((a, b) => b.probability - a.probability)[0];
+      const img = document.getElementById('imagePreview');
+      const prediction = await model.predict(img);
+      const best = prediction.sort((a, b) => b.probability - a.probability)[0];
 
-      document.getElementById("label-container").innerText =
+      document.getElementById("result").innerText =
         `Prediction: ${best.className} (${(best.probability * 100).toFixed(2)}%)`;
 
       const quantity = document.getElementById("quantity").value;
       const remarks = document.getElementById("remarks").value;
 
-      // Send to Google Sheet
       fetch(scriptURL, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           prediction: best.className,
           confidence: best.probability,
           quantity: quantity,
           remarks: remarks,
           imageBase64: imageBase64
-        }),
-        headers: {
-          "Content-Type": "application/json"
-        }
-      }).then(() => alert("Data submitted!"));
+        })
+      })
+      .then(() => {
+        alert("Data submitted to Google Sheet!");
+      })
+      .catch(err => {
+        console.error("Submission failed:", err);
+        alert("Submission failed.");
+      });
     }
   </script>
 </body>
